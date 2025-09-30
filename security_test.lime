@@ -1,0 +1,6 @@
+// Simplified vulnerable-like sample within supported syntax
+fn main() -> int {
+    let big_num: int = 1000000;
+    let result: int = big_num * big_num;
+    return result;
+}

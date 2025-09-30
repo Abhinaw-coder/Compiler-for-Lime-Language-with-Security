@@ -1,0 +1,9 @@
+// SECURE CODE DEMO (simplified to supported language features)
+
+fn main() -> int {
+    let a: int = 1000000;
+    let b: int = 1000;
+
+    let result: int = a * b;
+    return result;
+}
