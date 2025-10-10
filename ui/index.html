@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <meta name="description" content="AI-powered secure compiler assistant for Lime programming language with vulnerability detection" />
+  <meta name="keywords" content="compiler, security, AI, Lime language, vulnerability detection" />
+  <meta name="author" content="Secure Compiler Team" />
+  <title>AI-Based Secure Compiler Assistant</title>
+  <link rel="stylesheet" href="/styles-modern.css?v=3" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+</head>
+<body>
+  <div class="theme-toggle" aria-label="Toggle theme">
+    <button id="themeToggle" class="theme-btn" aria-label="Switch to light theme">
+      <span class="theme-icon">🌙</span>
+    </button>
+  </div>
+  
+  <header class="app-header" role="banner">
+    <div class="header-content">
+      <div class="brand-section">
+        <h1 class="brand">🛡️ AI-Based Secure Compiler Assistant</h1>
+        <p class="subtitle">Analyze your Lime code for security vulnerabilities and get AI-powered fixes.</p>
+      </div>
+      <div class="header-actions">
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+          <span class="hamburger"></span>
+          <span class="hamburger"></span>
+          <span class="hamburger"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" role="main">
+    <aside class="left-pane" id="leftPane" role="complementary" aria-label="Code editor and controls">
+      <section class="samples-section" aria-labelledby="samples-heading">
+        <div class="pill-row">
+          <button class="pill" data-sample="overflow" type="button">
+            <span class="pill-icon">⚠️</span> Buffer Overflow
+          </button>
+          <button class="pill" data-sample="fmt" type="button">
+            <span class="pill-icon">📝</span> Format String
+          </button>
+          <button class="pill" data-sample="concat" type="button">
+            <span class="pill-icon">🔗</span> Injection-like Concat
+          </button>
+          <button class="pill" data-sample="cmd" type="button">
+            <span class="pill-icon">💻</span> Command Injection-like
+          </button>
+          <button class="pill primary-ghost" data-sample="secure" type="button">
+            <span class="pill-icon">✅</span> Secure Code
+          </button>
+          <div class="spacer"></div>
+          <span class="small-label" id="samples-heading">Quick Samples</span>
+        </div>
+      </section>
+
+      <section class="editor-section" aria-labelledby="editor-heading">
+        <div class="editor-header">
+          <h2 id="editor-heading" class="editor-title">Code Editor</h2>
+          <div class="editor-actions">
+            <button type="button" class="btn-icon" id="clearBtn" aria-label="Clear editor" title="Clear code">
+              <span>🗑️</span>
+            </button>
+            <button type="button" class="btn-icon" id="formatBtn" aria-label="Format code" title="Format code">
+              <span>🎨</span>
+            </button>
+          </div>
+        </div>
+        <div class="editor-card">
+          <textarea 
+            id="editor" 
+            spellcheck="false" 
+            placeholder="Enter your Lime code here...&#10;&#10;Example:&#10;fn main() -> int {&#10;    let a: int = 5;&#10;    printf(&quot;Hello World!\n&quot;);&#10;    return 0;&#10;}"
+            aria-label="Code editor"
+            rows="20"
+          ></textarea>
+          <div class="editor-footer">
+            <div class="editor-stats">
+              <span id="lineCount">Lines: 1</span>
+              <span id="charCount">Characters: 0</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="controls-section" aria-labelledby="controls-heading">
+        <h3 id="controls-heading" class="visually-hidden">Analysis Controls</h3>
+        <div class="controls">
+          <div class="control-group">
+            <label for="minConfidence" class="control-label">
+              Min Confidence
+              <input id="minConfidence" type="range" min="0" max="1" step="0.05" value="0.5" aria-describedby="conf-help" />
+              <span id="confVal" class="control-value">0.50</span>
+            </label>
+            <small id="conf-help" class="control-help">Minimum confidence threshold for vulnerability detection</small>
+          </div>
+          
+          <div class="control-group">
+            <label class="checkbox-label">
+              <input id="optimize" type="checkbox" checked aria-describedby="opt-help" />
+              <span class="checkmark"></span>
+              Security-preserving optimization
+            </label>
+            <small id="opt-help" class="control-help">Enable optimizations that preserve security properties</small>
+          </div>
+
+          <div class="control-group">
+            <label class="checkbox-label">
+              <input id="runProgram" type="checkbox" checked aria-describedby="run-help" />
+              <span class="checkmark"></span>
+              Run program after successful analysis
+            </label>
+            <small id="run-help" class="control-help">Executes main() and captures output</small>
+          </div>
+          
+          <button id="analyzeBtn" class="primary analyze-btn" type="button" aria-describedby="analyze-help">
+            <span class="btn-icon">🔍</span>
+            <span class="btn-text">Compile & Analyze</span>
+            <div class="btn-loader" aria-hidden="true"></div>
+          </button>
+          <small id="analyze-help" class="control-help">Run security analysis on your code</small>
+        </div>
+      </section>
+    </aside>
+
+    <section class="right-pane" id="rightPane" role="main" aria-label="Analysis results">
+      <div id="riskBanner" class="risk-banner neutral" role="status" aria-live="polite">
+        <div class="risk-header">
+          <div class="risk-content">
+            <div class="risk-icon" aria-hidden="true">🔍</div>
+            <div>
+              <div class="risk-title">Awaiting Analysis</div>
+              <div class="risk-sub">Click "Compile & Analyze" to see results.</div>
+            </div>
+          </div>
+          <div class="dl-buttons">
+            <a id="dlAst" class="btn-link disabled" href="#" download aria-describedby="ast-help" role="button">
+              <span class="btn-icon">🌳</span> AST.json
+            </a>
+            <a id="dlIr" class="btn-link disabled" href="#" download aria-describedby="ir-help" role="button">
+              <span class="btn-icon">⚙️</span> IR (.ll)
+            </a>
+          </div>
+        </div>
+        <div class="hidden">
+          <span id="ast-help">Download Abstract Syntax Tree in JSON format</span>
+          <span id="ir-help">Download Intermediate Representation in LLVM format</span>
+        </div>
+      </div>
+
+      <section class="results-section" aria-labelledby="vulnerabilities-heading">
+        <div class="section-header">
+          <h3 id="vulnerabilities-heading" class="section-title">
+            <span class="section-icon">🛡️</span>
+            Vulnerability Details
+          </h3>
+          <div class="section-actions">
+            <button type="button" class="btn-icon" id="exportFindings" aria-label="Export findings" title="Export findings">
+              <span>📊</span>
+            </button>
+          </div>
+        </div>
+        <div id="findings" class="findings" role="region" aria-live="polite"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="errors-heading">
+        <div class="panel-header">
+          <h3 id="errors-heading" class="panel-title">
+            <span class="panel-icon">⚠️</span>
+            Errors & Warnings
+          </h3>
+          <button type="button" class="btn-icon panel-toggle" aria-label="Toggle panel" title="Collapse/Expand">
+            <span class="toggle-icon">▼</span>
+          </button>
+        </div>
+        <div class="panel-content">
+          <pre id="errors" class="console" role="log" aria-live="polite"></pre>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="ast-heading">
+        <div class="panel-header">
+          <h3 id="ast-heading" class="panel-title">
+            <span class="panel-icon">🌳</span>
+            Abstract Syntax Tree (AST)
+          </h3>
+          <div class="panel-actions">
+            <button type="button" class="btn-icon" id="copyAst" aria-label="Copy AST" title="Copy to clipboard">
+              <span>📋</span>
+            </button>
+            <button type="button" class="btn-icon panel-toggle" aria-label="Toggle panel" title="Collapse/Expand">
+              <span class="toggle-icon">▼</span>
+            </button>
+          </div>
+        </div>
+        <div class="panel-content">
+          <pre id="ast" class="console small" role="log" aria-live="polite"></pre>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="ir-heading">
+        <div class="panel-header">
+          <h3 id="ir-heading" class="panel-title">
+            <span class="panel-icon">⚙️</span>
+            Intermediate Representation (IR)
+          </h3>
+          <div class="panel-actions">
+            <button type="button" class="btn-icon" id="copyIr" aria-label="Copy IR" title="Copy to clipboard">
+              <span>📋</span>
+            </button>
+            <button type="button" class="btn-icon panel-toggle" aria-label="Toggle panel" title="Collapse/Expand">
+              <span class="toggle-icon">▼</span>
+            </button>
+          </div>
+        </div>
+        <div class="panel-content">
+          <pre id="ir" class="console small" role="log"></pre>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="output-heading">
+        <div class="panel-header">
+          <h3 id="output-heading" class="panel-title">
+            <span class="panel-icon">🖨️</span>
+            Program Output
+          </h3>
+          <div class="panel-actions">
+            <button type="button" class="btn-icon" id="copyOutput" aria-label="Copy Output" title="Copy to clipboard">
+              <span>📋</span>
+            </button>
+            <button type="button" class="btn-icon panel-toggle" aria-label="Toggle panel" title="Collapse/Expand">
+              <span class="toggle-icon">▼</span>
+            </button>
+          </div>
+        </div>
+        <div class="panel-content">
+          <pre id="output" class="console small" role="log"></pre>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer" role="contentinfo">
+    <div class="footer-content">
+      <p>Built for the Capstone Project – Secure-by-Design Mini Compiler for Lime</p>
+      <div class="footer-links">
+        <button type="button" class="footer-link" id="aboutBtn">About</button>
+        <button type="button" class="footer-link" id="helpBtn">Help</button>
+        <button type="button" class="footer-link" id="shortcutsBtn">Shortcuts</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer" class="toast-container" aria-live="polite" role="status"></div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay" aria-hidden="true">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Analyzing your code...</p>
+    </div>
+  </div>
+
+  <script src="/app.js?v=3"></script>
+</body>
+</html>

@@ -43,10 +43,10 @@ class AdvancedSecurityAnalyzer:
         return {
             VulnerabilityType.BUFFER_OVERFLOW: {
                 'patterns': [
-                    r'ArrayAccess.*index.*IdentifierLiteral',
-                    r'InfixExpression.*operator.*[<>].*IntegerLiteral',
-                    r'CallExpression.*read.*IdentifierLiteral',
-                    r'WhileStatement.*condition.*no.*bound'
+                    r'ArrayAccess.*index.*IdentifierLiteral.*bounds.*check',
+                    r'CallExpression.*function.*read.*arguments.*size',
+                    r'CallExpression.*function.*gets.*arguments',
+                    r'WhileStatement.*condition.*InfixExpression.*no.*bound.*check'
                 ],
                 'severity': 'HIGH',
                 'cwe': 'CWE-120',
@@ -58,10 +58,10 @@ class AdvancedSecurityAnalyzer:
             },
             VulnerabilityType.INJECTION: {
                 'patterns': [
-                    r'CallExpression.*exec.*InfixExpression.*\+',
-                    r'CallExpression.*system.*StringLiteral.*IdentifierLiteral',
-                    r'StringLiteral.*SELECT.*WHERE.*InfixExpression',
-                    r'CallExpression.*eval.*IdentifierLiteral'
+                    r'CallExpression.*function.*exec.*arguments.*InfixExpression.*operator.*\+',
+                    r'CallExpression.*function.*system.*arguments.*InfixExpression.*operator.*\+',
+                    r'CallExpression.*function.*eval.*arguments.*IdentifierLiteral',
+                    r'StringLiteral.*value.*SELECT.*FROM.*arguments.*IdentifierLiteral'
                 ],
                 'severity': 'CRITICAL',
                 'cwe': 'CWE-89',
@@ -73,9 +73,9 @@ class AdvancedSecurityAnalyzer:
             },
             VulnerabilityType.INTEGER_OVERFLOW: {
                 'patterns': [
-                    r'InfixExpression.*operator.*\*.*IntegerLiteral.*\d{4}',
-                    r'InfixExpression.*operator.*\+.*IntegerLiteral.*\d{6}',
-                    r'CallExpression.*malloc.*InfixExpression'
+                    r'InfixExpression.*operator.*\*.*IntegerLiteral.*value.*[1-9]\d{5,}',
+                    r'InfixExpression.*operator.*\+.*IntegerLiteral.*value.*[1-9]\d{7,}',
+                    r'CallExpression.*function.*malloc.*arguments.*InfixExpression.*operator.*\*'
                 ],
                 'severity': 'HIGH',
                 'cwe': 'CWE-190',
@@ -87,9 +87,9 @@ class AdvancedSecurityAnalyzer:
             },
             VulnerabilityType.UNINITIALIZED_MEMORY: {
                 'patterns': [
-                    r'IdentifierLiteral.*LetStatement.*no.*value',
-                    r'AssignStatement.*value.*None',
-                    r'IdentifierLiteral.*before.*assignment'
+                    r'LetStatement.*name.*no.*value.*assignment',
+                    r'IdentifierLiteral.*usage.*before.*LetStatement.*declaration',
+                    r'ReturnStatement.*return_value.*IdentifierLiteral.*uninitialized'
                 ],
                 'severity': 'MEDIUM',
                 'cwe': 'CWE-457',
@@ -101,9 +101,9 @@ class AdvancedSecurityAnalyzer:
             },
             VulnerabilityType.FORMAT_STRING: {
                 'patterns': [
-                    r'CallExpression.*printf.*IdentifierLiteral',
-                    r'CallExpression.*sprintf.*no.*format',
-                    r'StringLiteral.*%s.*IdentifierLiteral'
+                    r'CallExpression.*function.*printf.*arguments.*IdentifierLiteral',
+                    r'CallExpression.*function.*sprintf.*arguments.*IdentifierLiteral.*format',
+                    r'CallExpression.*function.*fprintf.*arguments.*IdentifierLiteral'
                 ],
                 'severity': 'HIGH',
                 'cwe': 'CWE-134',
@@ -152,10 +152,17 @@ class AdvancedSecurityAnalyzer:
                 ast_data = json.load(f)
             
             findings = self._deep_ast_analysis(ast_data)
-            # Filter by minimum confidence but never drop CRITICAL
+            # Filter by minimum confidence - allow high threshold to bypass all findings
             filtered = []
             for f in findings:
-                if f.severity == 'CRITICAL' or f.confidence >= self.min_confidence:
+                # If min_confidence is very high (>0.95), only show findings with extremely high confidence
+                if self.min_confidence > 0.95:
+                    if f.confidence >= self.min_confidence:
+                        filtered.append(f)
+                # Normal filtering: never drop CRITICAL unless threshold is very high
+                elif f.severity == 'CRITICAL' and self.min_confidence <= 0.9:
+                    filtered.append(f)
+                elif f.confidence >= self.min_confidence:
                     filtered.append(f)
             findings = filtered
             report = self._generate_comprehensive_report(findings)
@@ -214,10 +221,17 @@ class AdvancedSecurityAnalyzer:
         terms = [t for t in pattern.lower().split('.*') if t]
         if not terms:
             return 0.0
+        
+        # IMPORTANT: Only match if ALL terms are present (high precision)
         matches = 0
         for term in terms:
             if term in node_str or term in path_str:
                 matches += 1
+        
+        # Require ALL terms to match (not partial matches)
+        if matches != len(terms):
+            return 0.0
+        
         coverage = matches / len(terms)
         # Depth factor: deeper paths indicate more specific context
         depth = max(1, path_str.count('.') + 1)
@@ -228,24 +242,78 @@ class AdvancedSecurityAnalyzer:
     def _context_allows(self, node: Dict[str, Any], vuln_type: Any) -> bool:
         """Context-based false-positive reduction rules."""
         ntype = node.get('type')
-        # Ignore overly-generic top nodes unless they have strong evidence
-        if ntype in ['Program', 'Unknown']:
+        
+        # Ignore overly-generic nodes that don't represent actual security risks
+        if ntype in ['Program', 'Unknown', 'IdentifierLiteral', 'IntegerLiteral', 'StringLiteral']:
             return False
-        # Format-string: only flag printf/sprintf when first argument is not a constant string
-        if isinstance(vuln_type, VulnerabilityType) and vuln_type == VulnerabilityType.FORMAT_STRING:
-            if node.get('type') != 'CallExpression':
+        
+        # Only allow specific vulnerability types for specific contexts
+        if isinstance(vuln_type, VulnerabilityType):
+            # Buffer overflow: only flag actual array access or loop constructs
+            if vuln_type == VulnerabilityType.BUFFER_OVERFLOW:
+                if ntype not in ['ArrayAccess', 'WhileStatement', 'ForStatement', 'CallExpression']:
+                    return False
+                # Additional check: must have actual array indexing or unbounded loops
+                if ntype == 'CallExpression':
+                    fn = node.get('function', {})
+                    fname = fn.get('value') if isinstance(fn, dict) else None
+                    if fname not in ['read', 'scanf', 'gets']:
+                        return False
+            
+            # Injection: only flag actual string concatenation in dangerous contexts
+            elif vuln_type == VulnerabilityType.INJECTION:
+                if ntype != 'CallExpression':
+                    return False
+                fn = node.get('function', {})
+                fname = fn.get('value') if isinstance(fn, dict) else None
+                if fname not in ['exec', 'system', 'eval', 'query']:
+                    return False
+                # Must have string concatenation with variables
+                args = node.get('arguments', [])
+                has_concat = any(arg.get('type') == 'InfixExpression' and arg.get('operator') == '+' for arg in args if isinstance(arg, dict))
+                if not has_concat:
+                    return False
+            
+            # Format string: only flag printf/sprintf with variable format strings
+            elif vuln_type == VulnerabilityType.FORMAT_STRING:
+                if ntype != 'CallExpression':
+                    return False
+                fn = node.get('function', {})
+                fname = fn.get('value') if isinstance(fn, dict) else None
+                if fname not in ['printf', 'sprintf']:
+                    return False
+                args = node.get('arguments', [])
+                if not args:
+                    return False
+                first = args[0]
+                # If first argument is a constant string, it's safe
+                if isinstance(first, dict) and first.get('type') == 'StringLiteral':
+                    return False
+            
+            # Integer overflow: only flag actual arithmetic operations with large numbers
+            elif vuln_type == VulnerabilityType.INTEGER_OVERFLOW:
+                if ntype != 'InfixExpression':
+                    return False
+                op = node.get('operator')
+                if op not in ['*', '+']:
+                    return False
+                # Check for large numeric literals
+                left = node.get('left', {})
+                right = node.get('right', {})
+                large_num = False
+                for operand in [left, right]:
+                    if isinstance(operand, dict) and operand.get('type') == 'IntegerLiteral':
+                        val = operand.get('value', 0)
+                        if val > 100000:  # Only flag operations with large numbers
+                            large_num = True
+                if not large_num:
+                    return False
+            
+            # Uninitialized variables: only flag actual use before assignment
+            elif vuln_type == VulnerabilityType.UNINITIALIZED_MEMORY:
+                # This requires more complex data flow analysis - for now, be very restrictive
                 return False
-            fn = node.get('function', {})
-            fname = fn.get('value') if isinstance(fn, dict) else None
-            if fname not in ['printf', 'sprintf']:
-                return False
-            args = node.get('arguments', [])
-            if not args:
-                return False
-            first = args[0]
-            if isinstance(first, dict) and first.get('type') == 'StringLiteral':
-                # Constant format → likely safe
-                return False
+        
         return True
     
     def _get_node_location(self, node: Dict[str, Any]) -> str:

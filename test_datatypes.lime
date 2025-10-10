@@ -1,0 +1,31 @@
+fn main() -> int {
+    // Test integer literals
+    let small_int: int = 42;
+    let zero: int = 0;
+    let large_int: int = 1000;
+    
+    // Test float literals
+    let pi: float = 3.14159;
+    let small_float: float = 0.5;
+    let large_float: float = 100.0;
+    
+    // Test string literals
+    let greeting: str = "Hello, World!";
+    let empty_str: str = "";
+    let with_spaces: str = "   spaces   ";
+    
+    // Test arithmetic with mixed types
+    let int_result: int = small_int + zero;
+    let float_result: float = pi + small_float;
+    
+    // Test type annotations work correctly
+    if (small_int > zero) {
+        printf("Integer comparison works\n");
+    }
+    
+    if (pi > small_float) {
+        printf("Float comparison works\n");
+    }
+    
+    return int_result;
+}

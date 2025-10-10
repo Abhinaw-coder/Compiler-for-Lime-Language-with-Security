@@ -1,0 +1,25 @@
+fn main() -> int {
+    // Test basic variable assignments
+    let a: int = 5;
+    let b: int = 10;
+    let c: float = 3.14;
+    let s: str = "hello";
+    
+    // Test arithmetic operations
+    let sum: int = a + b;
+    let diff: int = b - a;
+    let prod: int = a * b;
+    let quot: int = b / a;
+    let mod: int = b % a;
+    
+    // Test comparisons
+    if (a < b) {
+        printf("a is less than b\n");
+    }
+    
+    if (a == 5) {
+        printf("a equals 5\n");
+    }
+    
+    return sum;
+}

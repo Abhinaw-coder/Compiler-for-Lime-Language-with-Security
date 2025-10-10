@@ -297,6 +297,9 @@ class Parser:
         self.__next_token()
 
         stmt.return_value = self.__parse_expression(PrecedenceType.P_LOWEST)
+        
+        if stmt.return_value is None:
+            return None
 
         if not self.__expect_peek(TokenType.SEMICOLON):
             return None

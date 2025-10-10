@@ -1,0 +1,30 @@
+fn main() -> int {
+    let result: int = 0;
+    
+    // Test if/else
+    if (5 > 3) {
+        result = 1;
+    } else {
+        result = 0;
+    }
+    
+    // Test while loop
+    let counter: int = 0;
+    while (counter < 3) {
+        counter = counter + 1;
+        if (counter == 2) {
+            continue;
+        }
+        result = result + counter;
+    }
+    
+    // Test for loop
+    for (let i: int = 0; i < 5; i = i + 1) {
+        if (i == 3) {
+            break;
+        }
+        result = result + i;
+    }
+    
+    return result;
+}

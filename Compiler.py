@@ -243,22 +243,25 @@ class Compiler:
         test, _ = self.__resolve_value(condition)
 
         while_loop_entry = self.builder.append_basic_block(f"while_loop_entry_{self.__increment_counter()}")
-
-        
         while_loop_otherwise = self.builder.append_basic_block(f"while_loop_otherwise_{self.counter}")
 
-        self.builder.cbranch(test, while_loop_entry, while_loop_otherwise)
+        # Set up break and continue targets
+        self.breakpoints.append(while_loop_otherwise)
+        self.continues.append(while_loop_entry)
 
-        
+        self.builder.cbranch(test, while_loop_entry, while_loop_otherwise)
         self.builder.position_at_start(while_loop_entry)
 
-       
         self.compile(body)
 
         test, _ = self.__resolve_value(condition)
 
         self.builder.cbranch(test, while_loop_entry, while_loop_otherwise)
         self.builder.position_at_start(while_loop_otherwise)
+
+        # Clean up break and continue targets
+        self.breakpoints.pop()
+        self.continues.pop()
 
     def __visit_break_statement(self, node: BreakStatement) -> None:
         self.builder.branch(self.breakpoints[-1])
@@ -478,25 +481,24 @@ class Compiler:
 
         return global_fmt, global_fmt.type
 
-    def builtin_printf(self, params: list[ir.Instruction], return_type: ir.Type) -> None:
-        
+    def builtin_printf(self, params: list[ir.Value], return_type: ir.Type) -> None:
         func, _ = self.env.lookup('printf')
-
-        c_str = self.builder.alloca(return_type)
-        self.builder.store(params[0], c_str)
-
-        rest_params = params[1:]
-
-        if isinstance(params[0], ir.LoadInstr):
+        
+        # Process all arguments to ensure they are i8* if they are strings
+        final_args = []
+        for p in params:
+            # Case 1: The parameter is a global variable (e.g., a direct string literal)
+            if isinstance(p, ir.GlobalVariable):
+                # Bitcast the global variable to an i8*
+                final_args.append(self.builder.bitcast(p, ir.IntType(8).as_pointer()))
             
-            c_fmt: ir.LoadInstr = params[0]
-            g_var_ptr = c_fmt.operands[0]
-            string_val = self.builder.load(g_var_ptr)
-            fmt_arg = self.builder.bitcast(string_val, ir.IntType(8).as_pointer())
-            return self.builder.call(func, [fmt_arg, *rest_params])
-        else:
-           
-            fmt_arg = self.builder.bitcast(self.module.get_global(f"__str_{self.counter}"), ir.IntType(8).as_pointer())
-
-            return self.builder.call(func, [fmt_arg, *rest_params])
-   
+            # Case 2: The parameter is a value whose type is a pointer to an array (e.g., a loaded string variable)
+            elif isinstance(p.type, ir.PointerType) and isinstance(p.type.pointee, ir.ArrayType):
+                # Bitcast the loaded value to an i8*
+                final_args.append(self.builder.bitcast(p, ir.IntType(8).as_pointer()))
+                
+            # Case 3: Any other type of parameter (e.g., int, float)
+            else:
+                final_args.append(p)
+                
+        return self.builder.call(func, final_args)

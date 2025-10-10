@@ -1,0 +1,5 @@
+fn main() -> int {
+    let a: int = 5
+    // Missing semicolon above should cause error
+    return a;
+}

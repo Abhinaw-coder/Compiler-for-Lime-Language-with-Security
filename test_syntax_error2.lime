@@ -1,0 +1,4 @@
+fn main() -> int {
+    let a: badtype = 5;
+    return a;
+}
